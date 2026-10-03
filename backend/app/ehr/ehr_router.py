@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import re
+import traceback
 from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, HTTPException, Query, Header, Request, status, Depends
 from fastapi.security import HTTPAuthorizationCredentials
@@ -321,7 +322,14 @@ async def reset_ehr(
             raise HTTPException(status_code=403, detail="Access Denied: Patients cannot execute destructive EHR database resets.")
 
     ehr_service.forced_failure = None
-    await seed_database(force=True)
+    try:
+        await seed_database(force=True)
+    except Exception as seed_err:
+        tb = traceback.format_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Seed failed: {type(seed_err).__name__}: {seed_err}\n{tb[-1500:]}"
+        )
 
     # Record immutable audit event for destructive operation
     try:
