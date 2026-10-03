@@ -126,22 +126,28 @@ class LLMClient:
                 raise
 
         elif self.provider == "gemini" and self._genai_client:
-            try:
-                full_contents = []
-                if system_instruction:
-                    full_contents.append(f"System Instructions:\n{system_instruction}\n")
-                full_contents.append(f"User Request:\n{prompt}")
+            full_contents = []
+            if system_instruction:
+                full_contents.append(f"System Instructions:\n{system_instruction}\n")
+            full_contents.append(f"User Request:\n{prompt}")
+            combined_prompt = "\n".join(full_contents)
 
-                response = self._genai_client.models.generate_content(
-                    model=self.gemini_model,
-                    contents="\n".join(full_contents),
-                )
-                if response and response.text:
-                    return response.text.strip()
-                return ""
-            except Exception as e:
-                logger.error(f"Gemini API call failed: {e}")
-                raise
+            candidate_models = [self.gemini_model, "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"]
+            last_err = None
+            for m in candidate_models:
+                try:
+                    response = self._genai_client.models.generate_content(
+                        model=m,
+                        contents=combined_prompt,
+                    )
+                    if response and response.text:
+                        return response.text.strip()
+                    return ""
+                except Exception as e:
+                    last_err = e
+                    logger.warning(f"Gemini model '{m}' failed: {e}. Trying fallback...")
+            logger.error(f"All Gemini model candidates failed: {last_err}")
+            raise last_err
 
         raise RuntimeError(
             f"No LLM provider available. Provider='{self.provider}'. Ensure Ollama is running or GEMINI_API_KEY is set."
@@ -186,22 +192,29 @@ class LLMClient:
             return
 
         elif self.provider == "gemini" and self._genai_client:
-            try:
-                full_contents = []
-                if system_instruction:
-                    full_contents.append(f"System Instructions:\n{system_instruction}\n")
-                full_contents.append(f"User Request:\n{prompt}")
+            full_contents = []
+            if system_instruction:
+                full_contents.append(f"System Instructions:\n{system_instruction}\n")
+            full_contents.append(f"User Request:\n{prompt}")
+            combined_prompt = "\n".join(full_contents)
 
-                response_stream = self._genai_client.models.generate_content_stream(
-                    model=self.gemini_model,
-                    contents="\n".join(full_contents),
-                )
-                for chunk in response_stream:
-                    if chunk and chunk.text:
-                        yield chunk.text
-            except Exception as e:
-                logger.error(f"Gemini streaming error: {e}")
-                yield f"\n[Inference Error: {str(e)}]"
+            candidate_models = [self.gemini_model, "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"]
+            for m in candidate_models:
+                try:
+                    response_stream = self._genai_client.models.generate_content_stream(
+                        model=m,
+                        contents=combined_prompt,
+                    )
+                    streamed_any = False
+                    for chunk in response_stream:
+                        if chunk and chunk.text:
+                            streamed_any = True
+                            yield chunk.text
+                    if streamed_any:
+                        return
+                except Exception as e:
+                    logger.warning(f"Gemini streaming model '{m}' failed: {e}. Trying fallback...")
+            yield "\n[Inference Error: All Gemini models temporarily unavailable]"
             return
 
         yield f"Configuration error: Neither Ollama nor GEMINI_API_KEY is configured."
@@ -227,15 +240,20 @@ class LLMClient:
 
         # Try Gemini embedding if client is ready
         if self._genai_client:
-            try:
-                result = self._genai_client.models.embed_content(
-                    model="text-embedding-004",
-                    contents=text,
-                )
-                if hasattr(result, "embedding") and hasattr(result.embedding, "values"):
-                    return result.embedding.values
-            except Exception as e:
-                logger.warning(f"Embedding generation failed via Gemini: {e}")
+            for emb_model in ["gemini-embedding-001", "text-embedding-004"]:
+                try:
+                    from google.genai import types
+                    result = self._genai_client.models.embed_content(
+                        model=emb_model,
+                        contents=text,
+                        config=types.EmbedContentConfig(output_dimensionality=768)
+                    )
+                    if hasattr(result, "embedding") and hasattr(result.embedding, "values"):
+                        return result.embedding.values
+                    elif hasattr(result, "embeddings") and result.embeddings:
+                        return result.embeddings[0].values
+                except Exception as e:
+                    logger.warning(f"Embedding generation failed via Gemini model {emb_model}: {e}")
 
         # Deterministic 768-dimensional hash vector fallback
         seed = int(hashlib.md5(text.encode("utf-8")).hexdigest(), 16)
