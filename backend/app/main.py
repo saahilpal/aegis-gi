@@ -1,9 +1,10 @@
 import logging
 import traceback
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exception_handlers import http_exception_handler
 from .config import settings
 from .db.database import init_db, is_sqlite
 from .ehr.ehr_router import router as ehr_router
@@ -59,6 +60,11 @@ app.add_middleware(
 )
 
 # Global Unhandled Exception Handler (Prevents stack trace leaks to clients)
+@app.exception_handler(HTTPException)
+async def passthrough_http_exception_handler(request: Request, exc: HTTPException):
+    """Pass HTTPExceptions through with their original status codes."""
+    return await http_exception_handler(request, exc)
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     # Log sanitized error internally
