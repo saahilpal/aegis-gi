@@ -46,6 +46,11 @@ if not is_sqlite:
         "pool_pre_ping": True,
         "pool_recycle": 1800,
     })
+    # asyncpg does not honor ?ssl=require in the URL; pass it explicitly.
+    # Strip the query param first to avoid "duplicate keyword argument" errors.
+    if "ssl=require" in DATABASE_URL:
+        DATABASE_URL = DATABASE_URL.split("?ssl=require")[0].split("&ssl=require")[0]
+    connect_args["ssl"] = "require"
 
 engine = create_async_engine(
     DATABASE_URL,
