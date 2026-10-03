@@ -3,7 +3,7 @@
 ## 1. Base URLs & Authentication
 
 - **Local Base URL**: `http://localhost:8000`
-- **Production Base URL**: `https://purchases-dividend-radical-fleet.trycloudflare.com`
+- **Production Base URL**: `https://aegis-gi-backend.onrender.com`
 - **OpenAPI Swagger UI**: `/docs`
 - **OpenAPI ReDoc**: `/redoc`
 

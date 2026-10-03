@@ -2,7 +2,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from .vector_store import vector_store
 from ..models.chat import Citation
 
-CONFIDENCE_THRESHOLD = 0.50  # Minimum confidence to accept retrieval without clarification
+CONFIDENCE_THRESHOLD = 0.35  # Minimum confidence to accept retrieval without clarification
 
 class RetrievalResult:
     def __init__(self, content: str, citations: List[Citation], confidence: float, is_low_confidence: bool):

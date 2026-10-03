@@ -1,5 +1,9 @@
 # Aegis GI — Healthcare Safety Architecture & Clinical Boundaries (`SAFETY.md`)
 
+> [!CAUTION]
+> **Medical Disclaimer & Educational Use Only**:
+> This software is an educational prototype and technology demonstration. It is NOT FDA-approved, CE-marked, or certified as a medical device (SaMD). It must NOT be used for real clinical diagnosis, treatment decisions, or emergency medical triage without qualified human physician supervision. All patient data, clinical records, and schedules in this repository are synthetic.
+
 ## 1. System Scope & Clinical Boundaries
 
 Aegis GI is explicitly designed and restricted to **administrative appointment coordination and patient bowel preparation education** for gastrointestinal endoscopy procedures.

@@ -28,7 +28,7 @@ flowchart LR
     subgraph CD ["Automated Zero-Cost Deployment"]
         DeployVercel["Deploy Frontend to Vercel Edge"]
         DBMigrate["Run PostgreSQL Migration Check"]
-        DeployBackend["Start Backend Service / Cloudflare Route"]
+        DeployBackend["Deploy Backend Web Service to Render"]
         SmokeTest["Post-Deployment Smoke Test (7/7 Checks)"]
     end
 

@@ -1,6 +1,8 @@
 import logging
+import traceback
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .db.database import init_db, is_sqlite
@@ -34,21 +36,40 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Production CORS configuration
-allowed_origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "https://*.vercel.app",
-    "*"
-]
+# Production-Hardened CORS Configuration
+if settings.ENVIRONMENT.lower() == "production":
+    raw_origins = settings.CORS_ORIGINS or "https://frontend-rho-indol-95.vercel.app"
+    allowed_origins = [o.strip() for o in raw_origins.split(",") if o.strip() and o.strip() != "*"]
+    if not allowed_origins:
+        allowed_origins = ["https://frontend-rho-indol-95.vercel.app"]
+else:
+    # Development / local test origins only
+    allowed_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://frontend-rho-indol-95.vercel.app"
+    ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-Requested-With"],
 )
+
+# Global Unhandled Exception Handler (Prevents stack trace leaks to clients)
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    # Log sanitized error internally
+    logger.error(f"Unhandled exception on {request.method} {request.url.path}: {type(exc).__name__}: {str(exc)}")
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "detail": "An internal server error occurred. Please try again or contact clinic support.",
+            "error_code": "INTERNAL_SERVER_ERROR"
+        }
+    )
 
 # Register Routers
 app.include_router(chat_router)

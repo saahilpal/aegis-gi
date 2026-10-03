@@ -10,6 +10,11 @@ import httpx
 from datetime import datetime
 
 BASE_URL = "http://127.0.0.1:8000"
+for i, arg in enumerate(sys.argv):
+    if arg == "--url" and i + 1 < len(sys.argv):
+        BASE_URL = sys.argv[i + 1].rstrip("/")
+    elif arg.startswith("--url="):
+        BASE_URL = arg.split("=", 1)[1].rstrip("/")
 
 def reset_db():
     res = httpx.post(f"{BASE_URL}/api/ehr/reset", timeout=10.0)

@@ -12,7 +12,7 @@ from backend.app.db.seed import seed_database
 
 @pytest.fixture(autouse=True)
 def reset_db():
-    asyncio.run(seed_database())
+    asyncio.run(seed_database(force=True))
 
 def test_ehr_patient_retrieval_and_rbac():
     # Self-access

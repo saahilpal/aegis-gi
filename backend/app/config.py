@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     # Security & HIPAA-aware engineering
     SECRET_KEY: str = os.getenv("SECRET_KEY", "clinical-aegis-secret-key-change-in-production-2026")
     ALGORITHM: str = "HS256"
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "https://frontend-rho-indol-95.vercel.app")
     PHI_SCRUB_LOGS: bool = True
     AUDIT_LOG_ENABLED: bool = True
 

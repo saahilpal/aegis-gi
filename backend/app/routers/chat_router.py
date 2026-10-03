@@ -1,9 +1,11 @@
 import time
 import json
 import uuid
-from typing import AsyncGenerator
-from fastapi import APIRouter, HTTPException, Request, Response
+import asyncio
+from typing import AsyncGenerator, Optional, Dict, Any
+from fastapi import APIRouter, HTTPException, Request, Response, Query, Depends, status
 from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials
 
 from ..models.chat import ChatRequest, ChatResponse
 from ..ehr.ehr_service import ehr_service
@@ -17,8 +19,20 @@ from ..db.models import (
     TraceStep as TraceStepModel,
     OutcomeVerification as OutcomeVerificationModel,
 )
+from ..security.auth import security_bearer, decode_access_token
+from ..security.rate_limiter import enforce_rate_limit
 
 router = APIRouter(prefix="/api/chat", tags=["Chat & Streaming"])
+
+def get_optional_auth_claims(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_bearer)
+) -> Optional[Dict[str, Any]]:
+    if not credentials:
+        return None
+    try:
+        return decode_access_token(credentials.credentials)
+    except Exception:
+        return None
 
 async def persist_chat_turn(
     conversation_id: str,
@@ -32,14 +46,12 @@ async def persist_chat_turn(
     """Store conversation, messages, execution trace, and outcome verification in PostgreSQL/DB."""
     try:
         async with get_db_session() as session:
-            # Check if conversation exists or create
             conv = await session.get(ConversationModel, conversation_id)
             if not conv:
                 conv = ConversationModel(id=conversation_id, patient_id=patient_id)
                 session.add(conv)
                 await session.flush()
 
-            # User message
             user_msg = MessageModel(
                 id=str(uuid.uuid4()),
                 conversation_id=conversation_id,
@@ -49,7 +61,6 @@ async def persist_chat_turn(
             )
             session.add(user_msg)
 
-            # Assistant message
             asst_msg_id = str(uuid.uuid4())
             asst_msg = MessageModel(
                 id=asst_msg_id,
@@ -60,7 +71,6 @@ async def persist_chat_turn(
             )
             session.add(asst_msg)
 
-            # Trace steps
             for st in trace_steps:
                 st_dict = st.dict() if hasattr(st, "dict") else st
                 trace_rec = TraceStepModel(
@@ -76,7 +86,6 @@ async def persist_chat_turn(
                 )
                 session.add(trace_rec)
 
-            # Outcome verification
             if verification:
                 v_dict = verification.dict() if hasattr(verification, "dict") else verification
                 verif_rec = OutcomeVerificationModel(
@@ -93,24 +102,44 @@ async def persist_chat_turn(
                 session.add(verif_rec)
 
             await session.commit()
-    except Exception as e:
-        # Non-fatal persistence logging
+    except Exception:
         pass
 
 
 @router.post("", response_model=ChatResponse)
-async def chat_endpoint(req: ChatRequest):
+async def chat_endpoint(
+    req: ChatRequest,
+    request: Request,
+    auth_claims: Optional[Dict[str, Any]] = Depends(get_optional_auth_claims)
+):
     """
     Standard chat endpoint:
-    Executes LangGraph workflow -> OutcomeVerifier -> Persists to DB -> Returns complete response with trace and verification.
+    Executes LangGraph workflow -> OutcomeVerifier -> Persists to DB -> Returns verified response.
     """
+    enforce_rate_limit(request, max_requests=40, window_seconds=60, operation="chat")
     t0 = time.time()
     before_snap = await ehr_service.take_snapshot_async()
 
+    # Scope identity if authenticated
+    effective_patient_id = req.patient_id
+    effective_user_role = req.user_role.value if hasattr(req.user_role, "value") else str(req.user_role)
+
+    if auth_claims:
+        role = auth_claims.get("role", "PATIENT").upper()
+        effective_user_role = role
+        if role == "PATIENT":
+            user_pid = auth_claims.get("patient_id") or auth_claims.get("sub")
+            if user_pid and req.patient_id != user_pid:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Access Denied: Authenticated patient cannot execute workflows for '{req.patient_id}'."
+                )
+            effective_patient_id = user_pid or effective_patient_id
+
     state = {
         "user_message": req.message,
-        "patient_id": req.patient_id,
-        "user_role": req.user_role.value if hasattr(req.user_role, "value") else str(req.user_role),
+        "patient_id": effective_patient_id,
+        "user_role": effective_user_role,
         "force_tool_failure": req.force_tool_failure,
         "force_agent_hallucination": req.force_agent_hallucination,
         "trace_steps": []
@@ -142,7 +171,7 @@ async def chat_endpoint(req: ChatRequest):
     # Persist to database asynchronously
     await persist_chat_turn(
         conversation_id=conv_id,
-        patient_id=req.patient_id,
+        patient_id=effective_patient_id,
         user_message=req.message,
         agent_response=agent_response,
         citations=citations,
@@ -164,15 +193,34 @@ async def chat_endpoint(req: ChatRequest):
 
 @router.get("/stream")
 async def chat_stream_endpoint(
-    message: str,
-    patient_id: str = "P101",
-    force_tool_failure: str = "",
-    force_agent_hallucination: bool = False
+    request: Request,
+    message: str = Query(..., min_length=1, max_length=4000),
+    patient_id: str = Query("P101", max_length=64),
+    force_tool_failure: str = Query("", max_length=32),
+    force_agent_hallucination: bool = Query(False),
+    token: Optional[str] = Query(None)
 ):
     """
     Server-Sent Events (SSE) streaming endpoint.
     Emits real-time execution node transitions, token chunks, live claims, and final outcome verification.
     """
+    enforce_rate_limit(request, max_requests=40, window_seconds=60, operation="chat_stream")
+
+    # Validate token if supplied
+    effective_patient_id = patient_id
+    effective_role = "PATIENT"
+    if token:
+        try:
+            claims = decode_access_token(token)
+            role = claims.get("role", "PATIENT").upper()
+            effective_role = role
+            if role == "PATIENT":
+                user_pid = claims.get("patient_id") or claims.get("sub")
+                if user_pid:
+                    effective_patient_id = user_pid
+        except Exception:
+            pass
+
     async def event_generator() -> AsyncGenerator[str, None]:
         before_snap = await ehr_service.take_snapshot_async()
         t0 = time.time()
@@ -181,76 +229,71 @@ async def chat_stream_endpoint(
 
         state = {
             "user_message": message,
-            "patient_id": patient_id,
-            "user_role": "PATIENT",
+            "patient_id": effective_patient_id,
+            "user_role": effective_role,
             "force_tool_failure": force_tool_failure if force_tool_failure else None,
             "force_agent_hallucination": force_agent_hallucination,
             "trace_steps": []
         }
 
-        # Run workflow
-        output = await agent_workflow.ainvoke(state)
-        trace_steps = output.get("trace_steps", [])
-        agent_response = output.get("final_response", "")
-        agent_claim = output.get("agent_claim")
-        citations = output.get("citations", [])
+        try:
+            # Run workflow
+            output = await agent_workflow.ainvoke(state)
+            trace_steps = output.get("trace_steps", [])
+            agent_response = output.get("final_response", "")
+            agent_claim = output.get("agent_claim")
+            citations = output.get("citations", [])
 
-        # Stream the traversed trace steps
-        for step in trace_steps:
-            yield f"event: trace_step\ndata: {json.dumps(step.dict(), default=str)}\n\n"
+            # Stream the traversed trace steps
+            for step in trace_steps:
+                yield f"event: trace_step\ndata: {json.dumps(step.dict(), default=str)}\n\n"
 
-        # Stream LLM tokens
-        # If Gemini client has API key configured and request is an explanation/prep question,
-        # generate live streamed response
-        if llm_client.api_key and "PREP" in state.get("request_category", ""):
-            prompt = f"Patient asks: {message}\nContext: {output.get('retrieved_context', '')}\nProvide safe, verified GI prep guidance."
-            for chunk in llm_client.generate_stream(prompt):
-                yield f"event: token\ndata: {json.dumps({'token': chunk})}\n\n"
-        else:
-            # Emit full token chunks without artificial delay
-            words = agent_response.split(" ")
-            for i in range(0, len(words), 4):
-                chunk = " ".join(words[i:i+4]) + " "
-                yield f"event: token\ndata: {json.dumps({'token': chunk})}\n\n"
+            # Stream LLM tokens
+            if llm_client.api_key and "PREP" in state.get("request_category", ""):
+                prompt = f"Patient asks: {message}\nContext: {output.get('retrieved_context', '')}\nProvide safe, verified GI prep guidance."
+                for chunk in llm_client.generate_stream(prompt):
+                    yield f"event: token\ndata: {json.dumps({'token': chunk})}\n\n"
+            else:
+                words = agent_response.split(" ")
+                for i in range(0, len(words), 4):
+                    chunk = " ".join(words[i:i+4]) + " "
+                    yield f"event: token\ndata: {json.dumps({'token': chunk})}\n\n"
 
-        after_snap = await ehr_service.take_snapshot_async()
+            after_snap = await ehr_service.take_snapshot_async()
 
-        # Independent Outcome Verification
-        verification = outcome_verifier.verify(
-            user_message=message,
-            agent_response=agent_response,
-            agent_claim=agent_claim,
-            before_snapshot=before_snap,
-            after_snapshot=after_snap
-        )
+            # Independent Outcome Verification
+            verification = outcome_verifier.verify(
+                user_message=message,
+                agent_response=agent_response,
+                agent_claim=agent_claim,
+                before_snapshot=before_snap,
+                after_snapshot=after_snap
+            )
 
-        total_latency = round((time.time() - t0) * 1000, 2)
-        conv_id = f"conv-{uuid.uuid4().hex[:8]}"
+            total_latency = round((time.time() - t0) * 1000, 2)
+            conv_id = f"conv-{uuid.uuid4().hex[:8]}"
 
-        # Persist to database
-        await persist_chat_turn(
-            conversation_id=conv_id,
-            patient_id=patient_id,
-            user_message=message,
-            agent_response=agent_response,
-            citations=citations,
-            trace_steps=trace_steps,
-            verification=verification
-        )
+            await persist_chat_turn(
+                conversation_id=conv_id,
+                patient_id=effective_patient_id,
+                user_message=message,
+                agent_response=agent_response,
+                citations=citations,
+                trace_steps=trace_steps,
+                verification=verification
+            )
 
-        # Emit Outcome verification payload
-        yield f"event: outcome\ndata: {json.dumps(verification.dict(), default=str)}\n\n"
-
-        # Emit EHR snapshot update
-        yield f"event: ehr_diff\ndata: {json.dumps(ehr_service.diff_snapshot(before_snap, after_snap), default=str)}\n\n"
-
-        # Emit Complete Done event
-        final_payload = {
-            "response_text": agent_response,
-            "citations": [c.dict() for c in citations],
-            "total_latency_ms": total_latency
-        }
-        yield f"event: done\ndata: {json.dumps(final_payload, default=str)}\n\n"
+            yield f"event: outcome\ndata: {json.dumps(verification.dict(), default=str)}\n\n"
+            yield f"event: ehr_diff\ndata: {json.dumps(ehr_service.diff_snapshot(before_snap, after_snap), default=str)}\n\n"
+            final_payload = {
+                "response_text": agent_response,
+                "citations": [c.dict() for c in citations],
+                "total_latency_ms": total_latency
+            }
+            yield f"event: done\ndata: {json.dumps(final_payload, default=str)}\n\n"
+        except asyncio.CancelledError:
+            # Client disconnected gracefully
+            return
 
     return StreamingResponse(
         event_generator(),

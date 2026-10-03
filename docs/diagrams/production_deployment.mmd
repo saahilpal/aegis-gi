@@ -8,17 +8,14 @@ flowchart TB
         EdgeRouting["Vercel Edge Gateway & Routing"]
     end
 
-    subgraph CloudflareEdge ["Cloudflare Edge Network ($0/mo)"]
-        Tunnel["Cloudflare Quick Tunnel (TLS 1.3)<br/>https://purchases-dividend-radical-fleet.trycloudflare.com"]
-    end
-
-    subgraph ComputeHost ["FastAPI Execution Host ($0/mo)"]
-        DockerBackend["FastAPI Container (Uvicorn ASGI)<br/>Python 3.12 / LangGraph 0.2"]
-        LocalOllama["Ollama Engine (Local LLM)<br/>llama3.2:3b + nomic-embed-text"]
+    subgraph RenderCompute ["Render Cloud Backend ($0/mo)"]
+        RenderBackend["FastAPI ASGI Web Service<br/>https://aegis-gi-backend.onrender.com"]
+        LangGraphEngine["LangGraph 0.2 Clinical Graph Engine"]
         OutcomeEngine["Independent Outcome Verifier Engine"]
+        LLMInference["Google Gemini Flash / Local Ollama"]
     end
 
-    subgraph RenderCloud ["Render Managed Cloud ($0/mo)"]
+    subgraph RenderCloud ["Render Managed Cloud DB ($0/mo)"]
         RenderPG["PostgreSQL 18 + pgvector<br/>dpg-db08nrid0e5s73ailpq0-a.oregon-postgres.render.com"]
         Tables["14 Normalized Tables + Embeddings"]
         Allowlist["CIDR 0.0.0.0/0 (SSL Enforced)"]
@@ -26,11 +23,11 @@ flowchart TB
 
     Browser -->|HTTPS / WSS| EdgeRouting
     EdgeRouting --> NextFrontend
-    NextFrontend -->|REST / SSE API Requests| Tunnel
-    Tunnel -->|Zero-Trust Tunnel| DockerBackend
-    DockerBackend -->|Inference & Embeddings| LocalOllama
-    DockerBackend -->|State Validation| OutcomeEngine
-    DockerBackend -->|AsyncPG TLS Connection (Port 5432)| RenderPG
+    NextFrontend -->|REST / SSE (TLS 1.3)| RenderBackend
+    RenderBackend --> LangGraphEngine
+    LangGraphEngine --> LLMInference
+    RenderBackend -->|State Validation| OutcomeEngine
+    RenderBackend -->|AsyncPG TLS Connection (Port 5432)| RenderPG
     RenderPG --- Tables
     RenderPG --- Allowlist
     OutcomeEngine -->|Read DB Pre/Post State| RenderPG

@@ -40,7 +40,7 @@ SECRET_KEY="replace-with-a-64-character-cryptographically-secure-random-key"
 ALGORITHM="HS256"
 
 # Frontend Integration
-NEXT_PUBLIC_API_URL="https://purchases-dividend-radical-fleet.trycloudflare.com"
+NEXT_PUBLIC_API_URL="https://aegis-gi-backend.onrender.com"
 ```
 
 ---
@@ -70,7 +70,7 @@ The frontend is deployed to Vercel's zero-cost hobby tier:
 ```bash
 cd frontend
 # 1. Ensure production backend API URL is configured:
-echo "NEXT_PUBLIC_API_URL=https://purchases-dividend-radical-fleet.trycloudflare.com" > .env.production
+echo "NEXT_PUBLIC_API_URL=https://aegis-gi-backend.onrender.com" > .env.production
 
 # 2. Deploy directly to production without interactive prompts:
 vercel deploy --prod --yes
@@ -85,7 +85,7 @@ vercel deploy --prod --yes
 Execute the automated end-to-end smoke test against the live production deployment:
 
 ```bash
-python scripts/smoke_test.py --url https://purchases-dividend-radical-fleet.trycloudflare.com
+python scripts/smoke_test.py --url https://aegis-gi-backend.onrender.com
 ```
 
 The smoke test verifies 7 critical production subsystems:
@@ -110,5 +110,5 @@ The smoke test verifies 7 critical production subsystems:
 - **Database Rollback**:
   Reset database to clean baseline at any time:
   ```bash
-  curl -X POST https://purchases-dividend-radical-fleet.trycloudflare.com/api/ehr/reset
+  curl -X POST https://aegis-gi-backend.onrender.com/api/ehr/reset
   ```

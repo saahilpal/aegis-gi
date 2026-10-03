@@ -12,21 +12,54 @@ from ..models.outcome import OutcomeClassification
 from ..db.database import get_db_session
 from ..db.models import EvaluationRun as EvaluationRunModel, EvaluationResult as EvaluationResultModel
 
+from ..security.auth import security_bearer, decode_access_token
+from ..security.rate_limiter import enforce_rate_limit
+from fastapi import Request, Depends
+from fastapi.security import HTTPAuthorizationCredentials
+
 router = APIRouter(prefix="/api/eval", tags=["Evaluation & Benchmarks"])
 
+def get_optional_auth_claims(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_bearer)
+) -> Optional[Dict[str, Any]]:
+    if not credentials:
+        return None
+    try:
+        return decode_access_token(credentials.credentials)
+    except Exception:
+        return None
+
+def enforce_admin_staff(claims: Optional[Dict[str, Any]]):
+    if claims:
+        role = claims.get("role", "PATIENT").upper()
+        if role == "PATIENT":
+            raise HTTPException(status_code=403, detail="Access Denied: Patients cannot trigger evaluation suites.")
+
 @router.get("/scenarios")
-def get_scenarios():
+def get_scenarios(request: Request):
     """List all 36 evaluation scenarios across all clinical categories."""
+    enforce_rate_limit(request, max_requests=60, window_seconds=60, operation="eval_scenarios")
     return {"total": len(SCENARIOS), "scenarios": [s.dict() for s in SCENARIOS]}
 
 @router.post("/run", response_model=EvalSummary)
-def run_evaluation(is_baseline: bool = Query(False, description="Run baseline vs improved suite")):
+def run_evaluation(
+    request: Request,
+    is_baseline: bool = Query(False, description="Run baseline vs improved suite"),
+    auth_claims: Optional[Dict[str, Any]] = Depends(get_optional_auth_claims)
+):
     """Run the evaluation suite against real LangGraph and persist to database."""
+    enforce_rate_limit(request, max_requests=5, window_seconds=60, operation="eval_run")
+    enforce_admin_staff(auth_claims)
     return benchmark_runner.run_suite(is_baseline=is_baseline)
 
 @router.post("/comparison", response_model=ComparisonReport)
-def run_comparison():
+def run_comparison(
+    request: Request,
+    auth_claims: Optional[Dict[str, Any]] = Depends(get_optional_auth_claims)
+):
     """Run both baseline and improved evaluation suites and return comparison report."""
+    enforce_rate_limit(request, max_requests=5, window_seconds=60, operation="eval_comparison")
+    enforce_admin_staff(auth_claims)
     return benchmark_runner.run_comparison()
 
 @router.get("/latest")

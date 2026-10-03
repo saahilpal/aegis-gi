@@ -13,7 +13,7 @@ No component introduces mandatory billing, paid subscriptions, paid API keys, pa
 | Component | Selected Service / Tool | Cost | Free Limit / Tier Conditions | Credit Card / Billing Required? | Hard Requirement? |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Frontend Hosting** | **Vercel Hobby Tier** | **$0** | Unlimited deployments, 100 GB bandwidth/mo, free `*.vercel.app` domains | No | Yes |
-| **Backend API Gateway** | **Render Free Tier / Cloudflare Quick Tunnel** | **$0** | 750 free instance hours/month on Render; unlimited encrypted ingress via Cloudflare | No | Yes |
+| **Backend API Gateway** | **Render Free Tier Web Service** | **$0** | 750 free instance hours/month on Render with automated TLS | No | Yes |
 | **Relational Database** | **Render PostgreSQL / Local PostgreSQL** | **$0** | 1 GB storage, 100 concurrent connections, PostgreSQL 16/18 with extensions | No | Yes |
 | **Vector Search Engine** | **pgvector (Open Source)** | **$0** | Native PostgreSQL extension, zero external licensing fees, 768-dim HNSW/IVFFlat | No | Yes |
 | **Local LLM Engine** | **Ollama (`llama3.2:3b`)** | **$0** | 100% offline, local GPU/CPU compute, zero API tokens or metering | No | Yes (for local dev) |
@@ -22,7 +22,7 @@ No component introduces mandatory billing, paid subscriptions, paid API keys, pa
 | **CI / CD Quality Gate** | **GitHub Actions** | **$0** | 2,000 free runner minutes/month for public repositories | No | Yes |
 | **Authentication & RBAC** | **FastAPI JWT + Passlib bcrypt** | **$0** | Self-hosted cryptographic tokens, zero third-party auth provider fees | No | Yes |
 | **Audit Logging** | **PostgreSQL `audit_events` Table** | **$0** | Relational ACID logging, zero third-party observability subscriptions | No | Yes |
-| **Domain & SSL/TLS** | **Vercel & Cloudflare Edge SSL** | **$0** | Automatic Let's Encrypt / Cloudflare certificates, zero domain purchase fees | No | Yes |
+| **Domain & SSL/TLS** | **Vercel & Render Managed TLS** | **$0** | Automatic Let's Encrypt certificates, zero domain purchase fees | No | Yes |
 | **Mock EHR System** | **Relational ACID Database** | **$0** | Built into PostgreSQL schema, zero external EHR gateway subscription fees | No | Yes |
 
 ---

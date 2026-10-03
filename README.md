@@ -1,6 +1,10 @@
 # Aegis GI: Outcome-Verified GI Prep & Booking Agent
 
-[![CI/CD Quality Gate & Automated Deployment](https://github.com/nitrousoxide/aegis-gi/actions/workflows/ci.yml/badge.svg)](https://github.com/nitrousoxide/aegis-gi/actions/workflows/ci.yml)
+> [!CAUTION]
+> **Medical Disclaimer & Educational Use Only**:
+> This software is an educational prototype and technology demonstration. It is NOT FDA-approved, CE-marked, or certified as a medical device (SaMD). It must NOT be used for real clinical diagnosis, treatment decisions, or emergency medical triage without qualified human physician supervision. All patient data, clinical records, and schedules in this repository are synthetic.
+
+[![CI/CD Quality Gate & Automated Deployment](https://github.com/saahilpal/aegis-gi/actions/workflows/ci.yml/badge.svg)](https://github.com/saahilpal/aegis-gi/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-zinc.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org/)
@@ -52,9 +56,9 @@ Every conversation receives exactly one verified classification:
 | Environment | Component | URL | Status & Health |
 | :--- | :--- | :--- | :--- |
 | **Production Web UI** | Next.js 16 Web Cockpit | [frontend-rho-indol-95.vercel.app](https://frontend-rho-indol-95.vercel.app) | **Live (HTTP 200)** |
-| **Production API** | FastAPI Backend Gateway | [purchases-dividend-radical-fleet.trycloudflare.com](https://purchases-dividend-radical-fleet.trycloudflare.com) | **Live (TLS 1.3)** |
-| **API Health Telemetry** | Readiness Endpoint | [/health](https://purchases-dividend-radical-fleet.trycloudflare.com/health) | `{"status": "HEALTHY", "pgvector_enabled": true}` |
-| **Interactive API Docs** | Swagger / OpenAPI UI | [/docs](https://purchases-dividend-radical-fleet.trycloudflare.com/docs) | Complete API Schema & SSE Spec |
+| **Production API** | FastAPI Backend Gateway | [aegis-gi-backend.onrender.com](https://aegis-gi-backend.onrender.com) | **Live (TLS 1.3)** |
+| **API Health Telemetry** | Readiness Endpoint | [/health](https://aegis-gi-backend.onrender.com/health) | `{"status": "HEALTHY", "pgvector_enabled": true}` |
+| **Interactive API Docs** | Swagger / OpenAPI UI | [/docs](https://aegis-gi-backend.onrender.com/docs) | Complete API Schema & SSE Spec |
 | **Managed Database** | PostgreSQL 18 + pgvector | `dpg-db08nrid0e5s73ailpq0-a.oregon-postgres.render.com` | Render Free Tier (CIDR 0.0.0.0/0, SSL) |
 
 ---
@@ -159,7 +163,7 @@ This entire application is deployable and demonstrable for **$0 / ₹0** recurri
 | **ORM / Driver** | SQLAlchemy 2.0 Async, asyncpg | $0.00 | Fully asynchronous connection pooling and transactions |
 | **Local LLM** | Ollama (`llama3.2:3b`) | $0.00 | Completely private, offline-capable local inference |
 | **Local Embeddings** | Ollama (`nomic-embed-text`) | $0.00 | High-quality 768-dimensional local vector embeddings |
-| **Edge Tunnel** | Cloudflare Quick Tunnels | $0.00 | Zero-trust HTTPS endpoint with TLS 1.3 encryption |
+| **Backend Hosting** | Render Free Tier Web Service | $0.00 | Zero-cost managed Python ASGI hosting with automated TLS |
 
 ---
 
@@ -243,7 +247,7 @@ Return Streamed Response & Verification Payload to Client
 
 ## 9. Safety & Clinical Red-Flag Guardrails
 
-Aegis GI implements deterministic, zero-hallucination safety guardrails:
+Aegis GI implements deterministic safety guardrails that prevent the LLM from making defined high-risk decisions:
 
 ### Red-Flag Clinical Emergencies (Immediate STAT Escalation)
 The agent intercepts acute symptoms and immediately advises emergency care (911 / Emergency Room) without attempting scheduling:
@@ -370,7 +374,7 @@ To demonstrate this system in clinical walkthroughs, use these three reproducibl
   3. The verification pane immediately flags a red **`FALSE_RESOLUTION`** alert with detailed discrepancy diagnostics.
 
 ### Demo C: Emergency Safety Escalation (30 Seconds)
-- **Goal**: Demonstrate clinical safety guardrails and zero-hallucination triage.
+- **Goal**: Demonstrate clinical safety guardrails and deterministic red-flag triage.
 - **Action**: Click **"Demo C: Bleeding Red-Flag"** or enter:
   > *"I started my prep 2 hours ago and now I have severe bleeding with large clots filling the toilet bowl."*
 - **What to Observe**:
@@ -391,13 +395,10 @@ This project runs completely free using standard cloud free tiers:
 [Vercel Edge Network] ───> Next.js 16 Static/SSR Cockpit ($0/mo)
        │
        ▼ (HTTPS / TLS 1.3)
-[Cloudflare Quick Tunnel] ───> Zero-Cost HTTPS Ingress ($0/mo)
-       │
-       ▼ (HTTP)
-[FastAPI Container] ───> Python 3.12 Backend / LangGraph ($0/mo)
+[Render Cloud Service] ───> Python 3.12 Backend / FastAPI / LangGraph ($0/mo)
        │
        ▼ (asyncpg / TLS 5432)
-[Render Cloud] ───> PostgreSQL 18 + pgvector Managed Instance ($0/mo)
+[Render Cloud DB] ───> PostgreSQL 18 + pgvector Managed Instance ($0/mo)
 ```
 
 ### Deploying the Database (Render Free Tier):
@@ -478,7 +479,7 @@ python scripts/test_healthcare_scenarios.py
 python -m backend.app.evaluation.ci_check
 
 # 4. Run end-to-end production smoke test
-python scripts/smoke_test.py --url https://purchases-dividend-radical-fleet.trycloudflare.com
+python scripts/smoke_test.py --url https://aegis-gi-backend.onrender.com
 ```
 
 ---

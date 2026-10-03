@@ -1,5 +1,9 @@
 # Aegis GI — Security Architecture & HIPAA-Aware Engineering (`SECURITY.md`)
 
+> [!CAUTION]
+> **Medical Disclaimer & Educational Use Only**:
+> This software is an educational prototype and technology demonstration. It is NOT FDA-approved, CE-marked, or certified as a medical device (SaMD). It must NOT be used for real clinical diagnosis, treatment decisions, or emergency medical triage without qualified human physician supervision. All patient data, clinical records, and schedules in this repository are synthetic.
+
 ## 1. What This Project Does NOT Claim
 
 > [!IMPORTANT]
@@ -65,4 +69,4 @@ Every appointment booking, rescheduling, cancellation, failure, and escalation g
 
 - **Zero Hardcoded Secrets**: Secrets such as `SECRET_KEY`, `DATABASE_URL`, and API tokens are loaded strictly via environment variables.
 - **Git Hygiene**: `.gitignore` explicitly filters out `.env`, `.env.local`, `*.db`, `*.sqlite`, and deployment metadata folders.
-- **Transport Security**: All external communication (Vercel frontend and Cloudflare/Render backend) enforces HTTPS with TLS 1.3 encryption in transit.
+- **Transport Security**: All external communication (Vercel frontend and Render backend) enforces HTTPS with TLS 1.3 encryption in transit.
