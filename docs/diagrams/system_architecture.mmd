@@ -1,0 +1,53 @@
+graph TB
+    subgraph ClientLayer ["Client & Cockpit Layer (Vercel)"]
+        UI["Next.js 16 Web Cockpit"]
+        ChatPane["Chat Stream & Token Receiver"]
+        TracePane["Live Node Trace Inspector"]
+        VerifyPane["Outcome Verification Pane"]
+    end
+
+    subgraph GatewayLayer ["FastAPI Production API Gateway"]
+        Auth["JWT & RBAC Gatekeeper"]
+        Router["/api/chat & /api/ehr & /api/eval"]
+        SSE["Server-Sent Events Broadcaster"]
+    end
+
+    subgraph AgentLayer ["LangGraph Clinical Agent"]
+        Classify["1. Intent & Clinical Triage"]
+        Retriever["2. Semantic Context Retrieval"]
+        Decide["3. Action Decision Router"]
+        Safety["4. Emergency Safety Guardrail"]
+        Tools["5. Tool Execution Node"]
+        Response["6. Structured Response Synthesis"]
+    end
+
+    subgraph StorageLayer ["PostgreSQL 16/18 + pgvector"]
+        EHR["Relational Tables: Appointments, Patients, Providers"]
+        Audit["Immutable Audit Events Table"]
+        Vectors["Document Chunks (768-dim Embeddings)"]
+        EvalStore["Evaluation Runs & Results"]
+    end
+
+    subgraph VerifierLayer ["Independent Verification Layer"]
+        DiffEngine["SQL Snapshot Diff Engine"]
+        OutcomeVerifier["OutcomeVerifier Core"]
+    end
+
+    UI -->|HTTPS / SSE| Router
+    Router --> Auth
+    Auth --> AgentLayer
+    AgentLayer --> Classify
+    Classify --> Retriever
+    Retriever -->|vector search| Vectors
+    Retriever --> Decide
+    Decide --> Safety
+    Safety -->|Pass| Tools
+    Tools -->|ACID Transactions| EHR
+    Tools -->|Append Event| Audit
+    Tools --> Response
+    Response --> OutcomeVerifier
+    EHR -->|Pre/Post Snapshot| DiffEngine
+    DiffEngine --> OutcomeVerifier
+    OutcomeVerifier --> VerifyPane
+    Response --> ChatPane
+    AgentLayer --> TracePane

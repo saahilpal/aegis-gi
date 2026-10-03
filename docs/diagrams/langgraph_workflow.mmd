@@ -1,0 +1,17 @@
+graph TD
+    Start([START]) --> ClassifyNode[Node 1: request_classification_node]
+    
+    ClassifyNode -->|Category: PREP_QUESTION / GENERAL| RetrieveNode[Node 2: retrieve_context_node]
+    ClassifyNode -->|Category: ACTION / SAFETY / RBAC| DecideNode[Node 3: decide_action_node]
+    
+    RetrieveNode -->|pgvector cosine search| DecideNode
+    
+    DecideNode -->|Decision: ESCALATE / TAKE_ACTION / ANSWER| SafetyNode[Node 4: safety_check_node]
+    
+    SafetyNode -->|Red Flag Detected| EscalateEdge[Override Decision: ESCALATE]
+    SafetyNode -->|Safe| ToolsNode[Node 5: execute_tools_node]
+    EscalateEdge --> ToolsNode
+    
+    ToolsNode -->|Create Human Ticket / Execute EHR Tool| ResponseNode[Node 6: final_response_node]
+    
+    ResponseNode --> EndNode([END / Return State & Claim])

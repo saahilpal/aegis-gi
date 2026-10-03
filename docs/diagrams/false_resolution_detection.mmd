@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant Agent as Conversational Agent
+    participant EHR as EHR System (Fails / Times Out)
+    participant Verifier as OutcomeVerifier
+    participant UI as Clinical Cockpit UI
+
+    Agent->>EHR: Attempt reschedule to Friday 2 PM
+    EHR-->>Agent: Connection Timeout / Error 503
+    Note over Agent: Failure occurs, but Agent hallucinates verbal success:
+    Agent->>UI: "Great news! Your colonoscopy has been rescheduled to Friday at 2:00 PM."
+    Note over Verifier: Verifier inspects real PostgreSQL state:
+    Verifier->>EHR: Query Appointment APT-1001
+    EHR-->>Verifier: scheduled_time is still Thursday 10:00 AM (NOT MODIFIED)
+    Verifier->>Verifier: Detect Discrepancy (Claim: SUCCESS vs EHR: UNCHANGED)
+    Verifier-->>UI: Output Classification: FALSE_RESOLUTION (Alert Flagged in Red)
+    Note over UI: UI displays discrepancy alert preventing patient from following incorrect prep

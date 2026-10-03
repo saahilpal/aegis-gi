@@ -1,0 +1,30 @@
+graph TB
+    subgraph Host ["Developer Workstation (Local Machine)"]
+        DevBrowser["Local Browser<br/>http://localhost:3000"]
+        LocalOllama["Local Ollama Daemon (Port 11434)<br/>- llama3.2:3b (Clinical Agent LLM)<br/>- nomic-embed-text (Embeddings)"]
+    end
+
+    subgraph DockerCompose ["Docker Compose Orchestration (100% Offline Capable)"]
+        subgraph FrontContainer ["frontend service"]
+            NextApp["Next.js 16 Web Cockpit<br/>Port 3000<br/>Hot-Reload Mounted (/frontend)"]
+        end
+
+        subgraph BackContainer ["backend service"]
+            FastAPIApp["FastAPI + LangGraph Service<br/>Port 8000<br/>Hot-Reload Mounted (/backend/app)"]
+            PytestHarness["Pytest & Evaluation Harness"]
+            OutcomeModule["Outcome Verification Module"]
+        end
+
+        subgraph DBContainer ["postgres service"]
+            LocalPG["PostgreSQL 16 + pgvector<br/>Port 5432<br/>Named Volume (pgdata)"]
+            LocalTables["Local Seed Data & Vectors"]
+        end
+    end
+
+    DevBrowser -->|HTTP| NextApp
+    NextApp -->|REST / SSE Proxy| FastAPIApp
+    FastAPIApp -->|HTTP inference| LocalOllama
+    FastAPIApp -->|AsyncPG TLS/TCP| LocalPG
+    OutcomeModule -->|Direct SQL Query| LocalPG
+    PytestHarness -->|Test Execution| FastAPIApp
+    LocalPG --- LocalTables

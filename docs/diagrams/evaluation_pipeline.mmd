@@ -1,0 +1,51 @@
+flowchart TD
+    subgraph Dataset ["Synthetic Clinical Benchmark Suite (36 Scenarios)"]
+        C1["1. Routine Prep Queries (6)"]
+        C2["2. Appointment Booking (6)"]
+        C3["3. Emergency Red-Flags (6)"]
+        C4["4. Medication Conflicts (6)"]
+        C5["5. Inadequate Prep Rescue (6)"]
+        C6["6. Discrepancy & Robustness (6)"]
+    end
+
+    subgraph Orchestrator ["Evaluation Harness (asyncpg + LangGraph)"]
+        Runner["Scenario Test Runner"]
+        StateCapture["Snapshot DB Ground Truth (Pre-State)"]
+        AgentExec["Invoke LangGraph Workflow Node Pipeline"]
+        PostCapture["Snapshot DB Ground Truth (Post-State)"]
+    end
+
+    subgraph Verification ["Independent Verification Engine"]
+        Verifier["OutcomeVerifier"]
+        Classifier{"Compare Agent Claim vs DB Diff"}
+        TP["Correct Completion (True Pos)"]
+        TN["Correct Safe Escalation (True Neg)"]
+        FP["False Resolution (CRITICAL FAIL)"]
+        FN["Premature Abortion"]
+    end
+
+    subgraph MetricsStore ["Metrics Aggregation & Persistence"]
+        Metrics["Compute KPIs:<br/>- Pass Rate: 100.0%<br/>- False Resolution: 0.0%<br/>- Completion Rate: 55.6%<br/>- Escalation Rate: 44.4%<br/>- Avg Latency: 255 ms"]
+        Persist[("eval_runs & eval_results Tables")]
+        Dashboard["Frontend Cockpit Eval Inspector"]
+    end
+
+    Dataset --> Runner
+    Runner --> StateCapture
+    StateCapture --> AgentExec
+    AgentExec --> PostCapture
+    PostCapture --> Verifier
+    Verifier --> Classifier
+
+    Classifier -->|Claim matches DB mutation| TP
+    Classifier -->|Escalated & no mutation| TN
+    Classifier -->|Claimed success without DB mutation| FP
+    Classifier -->|Unresolved error| FN
+
+    TP --> Metrics
+    TN --> Metrics
+    FP --> Metrics
+    FN --> Metrics
+
+    Metrics --> Persist
+    Persist --> Dashboard

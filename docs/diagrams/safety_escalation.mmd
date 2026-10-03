@@ -1,0 +1,11 @@
+flowchart TD
+    Msg[Patient Utterance] --> Detect{Contains Red-Flag Symptom?}
+    
+    Detect -->|Severe Bleeding / Syncope / Anaphylaxis| Intercept[Intercept Immediately < 1ms]
+    Detect -->|Normal Scheduling or Prep Query| NormalPath[Continue Normal LangGraph Workflow]
+    
+    Intercept --> BlockTools[Disable All Scheduling & EHR Mutating Tools]
+    BlockTools --> CreateTicket[Call create_human_escalation_async in DB]
+    CreateTicket --> SetAudit[Log Escalation Audit Event: Urgency EMERGENCY_911]
+    SetAudit --> EmergencyMsg[Generate Immediate 911 Directives & Stop Prep Warning]
+    EmergencyMsg --> Verifier[OutcomeVerifier Confirms Ticket in DB: CORRECTLY_ESCALATED]

@@ -1,0 +1,129 @@
+erDiagram
+    PATIENTS ||--o{ APPOINTMENTS : "schedules"
+    PROVIDERS ||--o{ APPOINTMENTS : "attends"
+    PROCEDURES ||--o{ APPOINTMENTS : "defines"
+    PREP_PROTOCOLS ||--o{ PROCEDURES : "guides"
+    EVALUATION_RUNS ||--o{ EVALUATION_RESULTS : "aggregates"
+    USERS ||--o{ AUDIT_EVENTS : "generates"
+    APPOINTMENTS ||--o{ OUTCOME_VERIFICATIONS : "validates"
+
+    PATIENTS {
+        uuid id PK
+        string mrn UK
+        string first_name
+        string last_name
+        date dob
+        string phone
+        string email
+        string preferred_language
+        timestamp created_at
+    }
+
+    PROVIDERS {
+        uuid id PK
+        string npi UK
+        string first_name
+        string last_name
+        string specialty
+        string clinic_location
+        boolean is_active
+    }
+
+    PROCEDURES {
+        uuid id PK
+        string code UK
+        string name
+        string category
+        int duration_minutes
+        boolean requires_sedation
+        text description
+    }
+
+    APPOINTMENTS {
+        uuid id PK
+        uuid patient_id FK
+        uuid provider_id FK
+        uuid procedure_id FK
+        timestamp scheduled_time
+        string status
+        text prep_instructions
+        text notes
+        timestamp updated_at
+    }
+
+    PREP_PROTOCOLS {
+        uuid id PK
+        string procedure_type
+        string name
+        int timing_offset_hours
+        text instructions
+        text dietary_restrictions
+        text medication_guidelines
+    }
+
+    DOCUMENT_CHUNKS {
+        uuid id PK
+        string document_title
+        int chunk_index
+        text content
+        vector embedding_768
+        jsonb chunk_metadata
+    }
+
+    AUDIT_EVENTS {
+        uuid id PK
+        string event_type
+        string user_id
+        string role
+        string session_id
+        string action_name
+        string status
+        jsonb details
+        string client_ip
+        timestamp created_at
+    }
+
+    OUTCOME_VERIFICATIONS {
+        uuid id PK
+        uuid appointment_id FK
+        string session_id
+        string status
+        string claim_type
+        boolean ground_truth_verified
+        boolean discrepancy_detected
+        jsonb pre_state_hash
+        jsonb post_state_hash
+        timestamp created_at
+    }
+
+    EVALUATION_RUNS {
+        uuid id PK
+        string suite_name
+        timestamp started_at
+        timestamp completed_at
+        int total_scenarios
+        int passed_scenarios
+        int false_resolutions
+        float latency_ms
+        string status
+    }
+
+    EVALUATION_RESULTS {
+        uuid id PK
+        uuid run_id FK
+        string scenario_id
+        string category
+        boolean passed
+        boolean false_resolution
+        float latency_ms
+        jsonb details
+    }
+
+    USERS {
+        uuid id PK
+        string username UK
+        string hashed_password
+        string role
+        string full_name
+        boolean is_active
+    }

@@ -1,0 +1,31 @@
+sequenceDiagram
+    autonumber
+    actor User as Client / User
+    participant Gateway as FastAPI Router
+    participant RBAC as Security Middleware (RBAC)
+    participant Agent as LangGraph Orchestrator
+    participant Tool as Restricted EHR Tool
+    participant Audit as Immutable Audit Store
+    participant DB as PostgreSQL Database
+
+    User->>Gateway: API Request with Bearer JWT
+    Gateway->>RBAC: Validate Token & Extract Claims (sub, role, permissions)
+    
+    alt Token Invalid / Expired
+        RBAC-->>User: 401 Unauthorized (Invalid credentials)
+    else Token Valid
+        RBAC->>RBAC: Check Required Permission vs Role (patient / staff / admin)
+        
+        alt Insufficient Privileges (e.g. Patient accessing Provider Override)
+            RBAC->>Audit: Append Security Event (ACCESS_DENIED, role, endpoint, ip)
+            RBAC-->>User: 403 Forbidden (Insufficient permissions)
+        else Authorized
+            RBAC->>Agent: Forward Request with Authenticated Context
+            Agent->>Tool: Execute Intent (e.g. Book Slot / Read History)
+            Tool->>DB: ACID Query with Patient Scoping Filter (patient_id)
+            DB-->>Tool: Query Result
+            Tool->>Audit: Log Authorized Action (ACTION_EXECUTED, role, tx_id)
+            Tool-->>Agent: Tool Response
+            Agent-->>User: 200 OK + Verified Response Payload
+        end
+    end

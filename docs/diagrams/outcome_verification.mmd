@@ -1,0 +1,30 @@
+flowchart LR
+    subgraph Inputs ["Inputs to OutcomeVerifier"]
+        Claim["Extracted Agent Claim (action_type, target_time, claimed_status)"]
+        PreSnap["Pre-Execution Snapshot (T0)"]
+        PostSnap["Post-Execution Snapshot (T1)"]
+        AuditEvents["Recent Audit Events"]
+    end
+
+    subgraph Evaluation ["Evaluation Engine"]
+        Diff["Compute Snapshot Diff (delta_appointments, delta_escalations)"]
+        Match{"Claim matches Delta?"}
+    end
+
+    subgraph Outputs ["Deterministic Classifications"]
+        Completed["COMPLETED (State confirmed)"]
+        Escalated["CORRECTLY_ESCALATED (Human ticket verified)"]
+        FalseRes["FALSE_RESOLUTION (Claim contradicted by DB)"]
+        Failed["FAILED (Exception or invalid state)"]
+    end
+
+    Claim --> Evaluation
+    PreSnap --> Diff
+    PostSnap --> Diff
+    AuditEvents --> Diff
+    Diff --> Match
+
+    Match -->|Claim == SUCCESS & DB mutated| Completed
+    Match -->|Claim == ESCALATED & Ticket in DB| Escalated
+    Match -->|Claim == SUCCESS & DB NOT mutated| FalseRes
+    Match -->|Unmatched error| Failed

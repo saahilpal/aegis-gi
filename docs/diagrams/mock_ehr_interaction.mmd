@@ -1,0 +1,19 @@
+sequenceDiagram
+    participant Agent as LangGraph Tools Node
+    participant Service as EHR Service (Async)
+    participant DB as PostgreSQL Transaction
+    participant Audit as audit_events Table
+
+    Agent->>Service: reschedule_appointment(APT-1001, 2026-10-16 14:00)
+    Service->>DB: BEGIN TRANSACTION
+    Service->>DB: SELECT * FROM appointments WHERE scheduled_time = slot AND status != cancelled FOR UPDATE
+    alt Slot is already occupied
+        DB-->>Service: Collision Detected (SLOT-101 taken)
+        Service->>DB: ROLLBACK
+        Service-->>Agent: Raise SlotUnavailableError
+    else Slot is free
+        Service->>DB: UPDATE appointments SET scheduled_time = slot, status = 'rescheduled' WHERE id = 'APT-1001'
+        Service->>Audit: INSERT INTO audit_events (action: 'RESCHEDULE', appt: 'APT-1001', slot: '...')
+        Service->>DB: COMMIT TRANSACTION
+        Service-->>Agent: Return Updated Appointment Entity
+    end

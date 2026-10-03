@@ -1,0 +1,13 @@
+flowchart TD
+    Q[Patient Preparation Question] --> Embed[Generate 768-dim Embedding via nomic-embed-text]
+    Embed --> Search[SQL Cosine Similarity Query on document_chunks table]
+    Search --> Filter{Similarity >= 0.50 Threshold?}
+    
+    Filter -->|Yes: High Confidence| Ground[Inject Top 3 Guideline Chunks into Prompt]
+    Filter -->|No: Low Confidence| Flag[Mark is_low_confidence = True]
+    
+    Ground --> LLM[Local Ollama / Cloud LLM Context-Anchored Synthesis]
+    LLM --> Citation[Attach Source Document & Section Citations]
+    Citation --> Output[Return Grounded Guidance]
+    
+    Flag --> Escalate[Route to Nurse Triage Review Ticket]

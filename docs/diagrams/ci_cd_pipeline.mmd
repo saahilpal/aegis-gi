@@ -1,0 +1,45 @@
+flowchart LR
+    subgraph Trigger ["GitHub Repository"]
+        Commit["Git Push / PR to main"]
+    end
+
+    subgraph CI ["GitHub Actions Workflow (Quality Gates)"]
+        subgraph Stage1 ["1. Lint & Format"]
+            Ruff["Ruff (Python Lint/Format)"]
+            ESLint["ESLint & Prettier (Next.js)"]
+        end
+
+        subgraph Stage2 ["2. Typecheck"]
+            Mypy["MyPy Strict Typing"]
+            TSC["TypeScript Compiler (tsc --noEmit)"]
+        end
+
+        subgraph Stage3 ["3. Unit Tests"]
+            Pytest["Pytest Unit & Security Tests (15/15)"]
+            EHRTest["Mock EHR ACID Tests"]
+        end
+
+        subgraph Stage4 ["4. Healthcare Benchmark"]
+            EvalSuite["36-Scenario Clinical Suite"]
+            ZeroFalse["Enforce 0.0% False-Resolution Gate"]
+        end
+    end
+
+    subgraph CD ["Automated Zero-Cost Deployment"]
+        DeployVercel["Deploy Frontend to Vercel Edge"]
+        DBMigrate["Run PostgreSQL Migration Check"]
+        DeployBackend["Start Backend Service / Cloudflare Route"]
+        SmokeTest["Post-Deployment Smoke Test (7/7 Checks)"]
+    end
+
+    Commit --> Stage1
+    Stage1 --> Stage2
+    Stage2 --> Stage3
+    Stage3 --> Stage4
+    Stage4 --> CD
+
+    CD --> DeployVercel
+    CD --> DBMigrate
+    DeployVercel --> SmokeTest
+    DBMigrate --> DeployBackend
+    DeployBackend --> SmokeTest

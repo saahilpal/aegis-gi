@@ -1,0 +1,45 @@
+flowchart TD
+    subgraph Triggers ["Event Sources"]
+        T1["Clinical Interaction (Chat)"]
+        T2["EHR Tool Mutation (Book / Reschedule / Cancel)"]
+        T3["Emergency Red-Flag Escalation"]
+        T4["Outcome Verifier Discrepancy"]
+        T5["RBAC Access Denial"]
+    end
+
+    subgraph Middleware ["Audit Middleware & Context Injector"]
+        Ctx["Capture Execution Context:<br/>- user_id, role, session_id<br/>- timestamp (UTC ISO-8601)<br/>- client_ip, route, method<br/>- pre_state & post_state hashes"]
+        Sanitize["HIPAA-Aware Sanitizer:<br/>- Strip unauthorized PII<br/>- Truncate payload blobs<br/>- Mask SSN / MRN if present"]
+    end
+
+    subgraph Pipeline ["Async Storage Pipeline"]
+        Queue["Async In-Memory Event Queue"]
+        Worker["Background Batch Ingestion Worker"]
+    end
+
+    subgraph Store ["PostgreSQL Storage Layer"]
+        Table[("audit_logs Table<br/>(Immutable Append-Only)")]
+        Index["B-Tree Indexes:<br/>- event_type<br/>- user_id<br/>- created_at<br/>- session_id"]
+    end
+
+    subgraph Consumers ["Audit Consumers"]
+        Inspector["Clinical Admin Audit Inspector"]
+        Compliance["Compliance & Forensic Exporter"]
+        Alerting["Security Anomaly Detection"]
+    end
+
+    T1 --> Ctx
+    T2 --> Ctx
+    T3 --> Ctx
+    T4 --> Ctx
+    T5 --> Ctx
+
+    Ctx --> Sanitize
+    Sanitize --> Queue
+    Queue --> Worker
+    Worker -->|ACID INSERT ONLY| Table
+    Table --> Index
+
+    Table -.->|Read-Only Stream| Inspector
+    Table -.->|JSON Export| Compliance
+    Table -.->|Threshold Trigger| Alerting

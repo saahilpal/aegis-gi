@@ -1,0 +1,25 @@
+sequenceDiagram
+    autonumber
+    actor Patient as Patient (User)
+    participant UI as Next.js Cockpit (Vercel)
+    participant API as FastAPI Gateway
+    participant Agent as LangGraph Orchestrator
+    participant DB as PostgreSQL / EHR
+    participant Verifier as OutcomeVerifier
+
+    Patient->>UI: Enters message ("Reschedule to Friday 2 PM")
+    UI->>API: POST /api/chat {message, patient_id}
+    API->>DB: Take Baseline Snapshot (State T0)
+    API->>Agent: ainvoke(AgentState)
+    Agent->>Agent: Request Classification (RESCHEDULE)
+    Agent->>Agent: Safety Guardrails Check (PASS)
+    Agent->>DB: Execute reschedule_appointment(APT-1001, new_slot)
+    DB-->>Agent: Appointment updated in SQL transaction
+    Agent->>Agent: Final Response Synthesis + AgentClaim
+    Agent-->>API: {response_text, agent_claim, trace_steps}
+    API->>DB: Take Post-Execution Snapshot (State T1)
+    API->>Verifier: verify(claim, State T0, State T1)
+    Verifier->>Verifier: Compute State Diff & Validate Match
+    Verifier-->>API: VerificationResult (COMPLETED, discrepancy=False)
+    API-->>UI: Complete Payload {response, verification, trace, latency}
+    UI-->>Patient: Displays confirmed reschedule with Verified Badge
