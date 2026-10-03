@@ -259,13 +259,20 @@ async def seed_database(force: bool = False):
 
         # 8. Document Chunks for Retrieval
         for item in CLINICAL_GUIDELINES:
+            # Run synchronous embed_text off the event loop to avoid blocking
+            loop = asyncio.get_event_loop()
+            embedding = await loop.run_in_executor(
+                None,
+                llm_client.embed_text,
+                f"{item['title']} {item['section']} {item['content']}"
+            )
             chunk = DocumentChunk(
                 id=str(uuid.uuid4()),
                 title=item["title"],
                 source_file=item["source_file"],
                 section=item["section"],
                 content=item["content"],
-                embedding=llm_client.embed_text(f"{item['title']} {item['section']} {item['content']}"),
+                embedding=embedding,
             )
             session.add(chunk)
 
